@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Login to Gilgamesh</title>
+	<link rel="stylesheet" href="{{ static_url("normalize.css") }}">
+	<link rel="stylesheet" href="{{ static_url("style.css") }}">
+</head>
+<body>
+<IMG SRC="{{ static_url('title.png')}}" ALT="image">
+	<section class="loginform cf">
+		<form name="login" action="/login" method="post" accept-charset="utf-8">
+			<ul>
+				<li>
+					<label for="username">Email</label>
+					<input type="text" name="name" placeholder="yourusername" required>
+				</li>
+				<li>
+					<label for="password">Password</label>
+					<input type="password" name="password" placeholder="password" required></li>
+				<li>
+					<input type="submit" value="Sign in">
+				</li>
+			</ul>
+		</form>
+	</section>
+</body>
+</html>
