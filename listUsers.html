@@ -1,7 +1,41 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Dec 21 11:14:19 2015
+<!doctype html>
 
-@author: admin
-"""
+<html lang="en">
+<head>
+  <meta charset="utf-8">
 
+  <title>User Status</title>
+  <meta name="description" content="The HTML5 Herald">
+  <meta name="author" content="SitePoint">
+
+  <link rel="stylesheet" href="{{ static_url('listUser.css')}}">
+
+
+</head>
+
+<body>
+
+<h1>User Status on Gilgamesh</h1>
+
+<table class="beispiel" cellspacing="0" cellpadding="0">
+
+<caption>List of users status</caption>
+
+<tbody>
+{%for name,value in table.iteritems() %}
+
+<tr>
+<td>{{name}}</td>
+<td>{{value}}</td>
+{%if value>0%}
+<td> <form method="post" action="/listUsers?value={{name}}"><button>Kill</button></form></td>
+{% else%}
+<td></td>
+{%end%}
+</tr>
+{%end%}
+</tbody>
+
+</table>
+</body>
+</html>
