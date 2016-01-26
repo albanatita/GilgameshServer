@@ -7,10 +7,21 @@ Created on Tue Sep 22 11:47:08 2015
 The virtual file and user manager system
 """
 
+import posixpath
+from sqlalchemy import (
+    and_,
+    cast,
+    desc,
+    func,
+    select,
+    Unicode,
+)
+
+from sqlalchemy.sql.elements import Cast
 from sqlalchemy import create_engine, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, backref,sessionmaker
-from sqlalchemy import Column, Integer, String, DateTime,Boolean
+from sqlalchemy import Column, Integer, String, DateTime,Boolean,Table,LargeBinary
 import os
 import datetime
 import config
@@ -19,7 +30,74 @@ from base64 import (
     b64decode,
     b64encode,
 )
+from nbformat import (
+    reads,
+    writes,
+)
 Base = declarative_base()
+FilePath = Unicode(300)
+NBFORMAT_VERSION = 4
+
+class NoSuchCheckpoint(Exception):
+    pass
+
+class PathOutsideRoot(Exception):
+    pass
+
+def to_b64(content, fmt):
+    allowed_formats = {'text', 'base64'}
+    if fmt not in allowed_formats:
+        raise ValueError(
+            "Expected file contents in {allowed}, got {fmt}".format(
+                allowed=allowed_formats,
+                fmt=fmt,
+            )
+        )
+    if fmt == 'text':
+        # Unicode -> bytes -> base64-encoded bytes.
+        return b64encode(content.encode('utf8'))
+    else:
+        return content.encode('ascii')
+
+def reads_base64(nb, as_version=NBFORMAT_VERSION):
+    """
+    Read a notebook from base64.
+    """
+    return reads(b64decode(nb).decode('utf-8'), as_version=as_version)
+
+def _decode_unknown_from_base64(path, bcontent):
+    """
+    Decode base64 data of unknown format.
+    Attempts to interpret data as utf-8, falling back to ascii on failure.
+    """
+    content = b64decode(bcontent)
+    try:
+        return (content.decode('utf-8'), 'text')
+    except UnicodeError:
+        pass
+    return bcontent.decode('ascii'), 'base64'
+
+def _get_name(column_like):
+    """
+    Get the name from a column-like SQLAlchemy expression.
+    Works for Columns and Cast expressions.
+    """
+    if isinstance(column_like, Column):
+        return column_like.name
+    elif isinstance(column_like, Cast):
+        return column_like.clause.name
+
+
+def to_dict(fields, row):
+    """
+    Convert a SQLAlchemy row to a dict.
+    If row is None, return None.
+    """
+    assert(len(fields) == len(row))
+    return {
+        _get_name(field): value
+        for field, value in zip(fields, row)
+    }
 
 def session_factory(url=config.dburl):
      engine=create_engine(url,pool_recycle=3600)
@@ -27,6 +105,7 @@ def session_factory(url=config.dburl):
      return Session
      
 Session=session_factory()
+engine=create_engine(config.dburl,pool_recycle=3600)
 
 def writes_base64(nb):
     """
@@ -89,6 +168,22 @@ class User(Base):
     def __repr__(self):
         return "<User(name='%s')>" % (self.name)
 
+class Remote_checkpoints(Base):
+    __table__= Table(
+    'remote_checkpoints',Base.metadata,
+    Column('id', Integer(), nullable=False, primary_key=True),
+    Column(
+        'user_id',
+        Integer,
+        ForeignKey('users.id'),
+        nullable=False,
+    ),
+    Column('path', FilePath, nullable=False),
+    Column('content', LargeBinary(100000), nullable=False),
+    Column('last_modified', DateTime, default=func.now(), nullable=False),
+)
+
+
 class userManager():
     
     def addUser(self,name,password,role,session):
@@ -114,6 +209,9 @@ class userManager():
         
     def existUser(self,name,session):
         return session.query(User.id).filter(User.name==name).count()==1
+
+    def getUserID(self,name,session):
+        return session.query(User.id).filter(User.name==name).first()
 
 um=userManager()
 
@@ -313,27 +411,208 @@ class fileManager():
     
        
 #---------- single use functions
-def initialize():
-    engine=create_engine(config.dburl,echo=True)
-    Base.metadata.create_all(engine)
-    Session=session_factory()
-    um=userManager()
-    with session_scope() as session:
-		usr=um.addUser('all','all','admin',session)   
-		fm=fileManager(usr)
-		fm.createRoot(session)   
+#def initialize():
+#    engine=create_engine(config.dburl,echo=True)
+#    Base.metadata.create_all(engine)
+#    Session=session_factory()
+#    um=userManager()
+#    with session_scope() as session:
+#		usr=um.addUser('all','all','admin',session)   
+#		fm=fileManager(usr)
+#		fm.createRoot(session)   
+#
+#def deleteAll():
+#    engine=create_engine(config.dburl,echo=True)
+#    Base.metadata.drop_all(engine)
+#                
+#def addUser1():
+#    Session=session_factory()
+#    um=userManager()
+#    with session_scope() as session:    
+#		usr=um.addUser('rdi','rdi','admin',session)
+#		fm=fileManager(usr)
+#		fm.createRoot(session)
+ 
+#================================================
+# =======================================
+# Checkpoints (PostgresCheckpoints)
+# =======================================
 
-def deleteAll():
-    engine=create_engine(config.dburl,echo=True)
-    Base.metadata.drop_all(engine)
-                
-def addUser1():
-    Session=session_factory()
-    um=userManager()
-    with session_scope() as session:    
-		usr=um.addUser('rdi','rdi','admin',session)
-		fm=fileManager(usr)
-		fm.createRoot(session)
+def normalize_api_path(api_path):
+    """
+    Resolve paths with '..' to normalized paths, raising an error if the final
+    result is outside root.
+    """
+    normalized = posixpath.normpath(api_path.strip('/'))
+    if normalized == '.':
+        normalized = ''
+    elif normalized.startswith('..'):
+        raise PathOutsideRoot(normalized)
+    return normalized
     
+def from_api_filename(api_path):
+    """
+    Convert an API-style path into a db-style path.
+    """
+    normalized = normalize_api_path(api_path)
+    assert len(normalized), "Empty path in from_api_filename"
+    return '/' + normalized
+
+def _remote_checkpoint_default_fields():
+    return [
+        cast(Remote_checkpoints.__table__.c.id, Unicode),
+        Remote_checkpoints.__table__.c.last_modified,
+    ]
+
+
+def delete_single_remote_checkpoint(db, user_id, api_path, checkpoint_id):
+    db_path = from_api_filename(api_path)
+    result = db.execute(
+        Remote_checkpoints.__table__.delete().where(
+            and_(
+                Remote_checkpoints.__table__.c.user_id == user_id,
+                Remote_checkpoints.__table__.c.path == db_path,
+                Remote_checkpoints.__table__.c.id == int(checkpoint_id),
+            ),
+        ),
+    )
+
+    if not result.rowcount:
+        raise NoSuchCheckpoint(api_path, checkpoint_id)
+
+
+def delete_remote_checkpoints(db, user_id, api_path):
+    db_path = from_api_filename(api_path)
+    db.execute(
+        Remote_checkpoints.__table__.delete().where(
+            and_(
+                Remote_checkpoints.__table__.c.user_id == user_id,
+                Remote_checkpoints.__table__.c.path == db_path,
+            ),
+        )
+    )
+
+
+def list_remote_checkpoints(db, user_id, api_path):
+    db_path = from_api_filename(api_path)
+    fields = _remote_checkpoint_default_fields()
+    results = db.execute(
+        select(fields).where(
+            and_(
+                Remote_checkpoints.__table__.c.user_id == user_id,
+                Remote_checkpoints.__table__.c.path == db_path,
+            ),
+        ).order_by(
+            desc(Remote_checkpoints.__table__.c.last_modified),
+        ),
+    )
+
+    return [to_dict(fields, row) for row in results]
+
+
+def move_single_remote_checkpoint(db,
+                                  user_id,
+                                  src_api_path,
+                                  dest_api_path,
+                                  checkpoint_id):
+    src_db_path = from_api_filename(src_api_path)
+    dest_db_path = from_api_filename(dest_api_path)
+    result = db.execute(
+        Remote_checkpoints.__table__.update().where(
+            and_(
+                Remote_checkpoints.__table__.c.user_id == user_id,
+                Remote_checkpoints.__table__.c.path == src_db_path,
+                Remote_checkpoints.__table__.c.id == int(checkpoint_id),
+            ),
+        ).values(
+            path=dest_db_path,
+        ),
+    )
+
+    if not result.rowcount:
+        raise NoSuchCheckpoint(src_api_path, checkpoint_id)
+
+
+def move_remote_checkpoints(db, user_id, src_api_path, dest_api_path):
+    src_db_path = from_api_filename(src_api_path)
+    dest_db_path = from_api_filename(dest_api_path)
+    db.execute(
+        Remote_checkpoints.__table__.update().where(
+            and_(
+                Remote_checkpoints.__table__.c.user_id == user_id,
+                Remote_checkpoints.__table__.c.path == src_db_path,
+            ),
+        ).values(
+            path=dest_db_path,
+        ),
+    )
+
+
+def get_remote_checkpoint(db, user_id, api_path, checkpoint_id):
+    db_path = from_api_filename(api_path)
+    fields = [Remote_checkpoints.__table__.c.content]
+    result = db.execute(
+        select(
+            fields,
+        ).where(
+            and_(
+                Remote_checkpoints.__table__.c.user_id == user_id,
+                Remote_checkpoints.__table__.c.path == db_path,
+                Remote_checkpoints.__table__.c.id == int(checkpoint_id),
+            ),
+        )
+    ).first()
+
+    if result is None:
+        raise NoSuchCheckpoint(api_path, checkpoint_id)
+
+    return to_dict(fields, result)
+
+
+def save_remote_checkpoint(db, user_id, api_path, content):
+    return_fields = _remote_checkpoint_default_fields()
+    result = db.execute(
+        Remote_checkpoints.__table__.insert().values(
+            user_id=user_id,
+            path=from_api_filename(api_path),
+            content=content,
+        ).returning(
+            *return_fields
+        ),
+    ).first()
+
+    return to_dict(return_fields, result)
+
+
+def purge_remote_checkpoints(db, user_id):
+    """
+    Delete all database records for the given user_id.
+    """
+    db.execute(
+        Remote_checkpoints.__table__.delete().where(
+            Remote_checkpoints.__table__.c.user_id == user_id,
+        )
+    )
+
+
+def latest_remote_checkpoints(db, user_id):
+    """
+    Get the latest version of each file for the user.
+    """
+    query_fields = [
+        Remote_checkpoints.__table__.c.id,
+        Remote_checkpoints.__table__.c.path,
+    ]
+
+    query = select(query_fields).where(
+        Remote_checkpoints.__table__.c.user_id == user_id,
+    ).order_by(
+        Remote_checkpoints.__table__.c.path,
+        desc(Remote_checkpoints.__table__.c.last_modified),
+    ).distinct(
+        Remote_checkpoints.__table__.c.path,
+    )
+    results = db.execute(query)
+    return (to_dict(query_fields, row) for row in results)   
 
 #fm=fileManager()

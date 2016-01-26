@@ -23,6 +23,7 @@ from tornado.web import HTTPError
 import mimetypes
 from datetime import datetime
 import fileManager
+import checkpoints
 
 NBFORMAT_VERSION = 4
 
@@ -162,27 +163,30 @@ def from_b64(path, bcontent, format):
 
 class SharedContentsManager(ContentsManager):
 
-	def __init__(self, *args, **kwargs):     
-         super(SharedContentsManager,self).__init__(*args, **kwargs)
-
-	def guess_type(self, path, allow_directory=True):
-		if path=='':
-			path='/'
-		if path[0]!='/':
-			path='/'+path
-		"""
-		Guess the type of a file.
-		If allow_directory is False, don't consider the possibility that the
-		file is a directory.
-		"""
-		if path.endswith('.ipynb'):
-			return 'notebook'
-		elif allow_directory and self.dir_exists(path):
-			return 'directory'
-		else:
-			return 'file'
-	
-	def dir_exists(self, path):
+      def __init__(self, *args, **kwargs):     
+          super(SharedContentsManager,self).__init__(*args, **kwargs)     
+     
+      def _checkpoints_class_default(self):
+          return checkpoints.NoCheckpoints
+    
+      def guess_type(self, path, allow_directory=True):
+    		if path=='':
+    			path='/'
+    		if path[0]!='/':
+    			path='/'+path
+    		"""
+    		Guess the type of a file.
+    		If allow_directory is False, don't consider the possibility that the
+    		file is a directory.
+    		"""
+    		if path.endswith('.ipynb'):
+    			return 'notebook'
+    		elif allow_directory and self.dir_exists(path):
+    			return 'directory'
+    		else:
+    			return 'file'
+    	
+      def dir_exists(self, path):
 		with fileManager.session_scope() as session:
 			if path=='':
 				path='/'
@@ -190,18 +194,18 @@ class SharedContentsManager(ContentsManager):
 				path='/'+path
 			return self.fm.dir_exists(path,session)
 		
-	def is_hidden(self, path):
-		return False
-            
-	def file_exists(self, path):
-		with fileManager.session_scope() as session:
-		    if path=='':
-		    	path='/'
-		    if path[0]!='/':
-		    	path='/'+path
-		    return self.fm.file_exists(path,session)
+      def is_hidden(self, path):
+    		return False
+    
+      def file_exists(self, path):
+    		with fileManager.session_scope() as session:
+    		    if path=='':
+    		    	path='/'
+    		    if path[0]!='/':
+    		    	path='/'+path
+    		    return self.fm.file_exists(path,session)
 		    
-	def get(self, path, content=True, type=None, format=None):
+      def get(self, path, content=True, type=None, format=None):
 		if path=='':
 			path='/'
 		if path[0]!='/':
@@ -218,7 +222,7 @@ class SharedContentsManager(ContentsManager):
 			raise ValueError("Unknown type passed: '{}'".format(type))
 		return fn(path=path, content=content, format=format)
 		
-	def _get_notebook(self, path, content, format):
+      def _get_notebook(self, path, content, format):
 		"""
 		Get a notebook from the database.
 		"""
@@ -231,7 +235,7 @@ class SharedContentsManager(ContentsManager):
 			return self._notebook_model_from_db(record, content)
 		  
 		
-	def _notebook_model_from_db(self, record, content):
+      def _notebook_model_from_db(self, record, content):
 		"""
 		Build a notebook model from database record.
 		"""
@@ -249,7 +253,8 @@ class SharedContentsManager(ContentsManager):
 			self.validate_notebook_model(model)
 		return model       
 		
-	def _get_directory(self, path, content, format):
+  
+      def _get_directory(self, path, content, format):
 		"""
 		Get a directory from the database.
 		"""
@@ -264,7 +269,7 @@ class SharedContentsManager(ContentsManager):
 					self.no_such_entity(path)   
 			return self._directory_model_from_db(record, content,session)
 		
-	def _directory_model_from_db(self, record, content,session):
+      def _directory_model_from_db(self, record, content,session):
 		"""
 		Build a directory model from database directory record.
 		"""
@@ -285,7 +290,7 @@ class SharedContentsManager(ContentsManager):
 
 		return model
 
-	def _convert_file_records(self, file_records):
+      def _convert_file_records(self, file_records):
 		"""
 		Apply _notebook_model_from_db or _file_model_from_db to each entry
 		in file_records, depending on the result of `guess_type`.
@@ -299,7 +304,7 @@ class SharedContentsManager(ContentsManager):
 			else:
 				raise HTTPError(500,"Unknown file type %s" % type_)
 
-	def _file_model_from_db(self, record, content, format):
+      def _file_model_from_db(self, record, content, format):
 		"""
 		Build a file model from database record.
 		"""
@@ -321,7 +326,7 @@ class SharedContentsManager(ContentsManager):
 
 		return model
 
-	def _get_file(self, path, content, format):
+      def _get_file(self, path, content, format):
 		with fileManager.session_scope() as session:
 			try:
 				record = self.fm.get_file(path, session,content=content)
@@ -332,7 +337,7 @@ class SharedContentsManager(ContentsManager):
 					raise HTTPError (400,u"Not found: %s" % path)
 			return self._file_model_from_db(record, content, format)
 
-	def _save_notebook(self,  model, path):
+      def _save_notebook(self,  model, path):
 		"""
 		Save a notebook.
 		Returns a validation message.
@@ -345,7 +350,7 @@ class SharedContentsManager(ContentsManager):
 			self.validate_notebook_model(model)
 			return model.get('message')
 
-	def _save_file(self,  model, path):
+      def _save_file(self,  model, path):
 		"""
 		Save a non-notebook file.
 		"""
@@ -355,14 +360,14 @@ class SharedContentsManager(ContentsManager):
 							)
 			return None
 
-	def _save_directory(self, path):
+      def _save_directory(self, path):
 		"""
 		'Save' a directory.
 		"""
 		with fileManager.session_scope() as session:
 			self.fm.save_directory(path,session)
 
-	def save(self, model, path):
+      def save(self, model, path):
 		if path=='':
 			path='/'
 		if path[0]!='/':
@@ -401,7 +406,7 @@ class SharedContentsManager(ContentsManager):
 			model['message'] = validation_message
 		return model
 
-	def rename_file(self, old_path, path):
+      def rename_file(self, old_path, path):
 		"""
 		Rename object from old_path to path.
 		NOTE: This method is unfortunately named on the base class.  It
@@ -418,13 +423,13 @@ class SharedContentsManager(ContentsManager):
 			except (FileExists, DirectoryExists):
 				self.already_exists(path)
 
-	def _delete_non_directory(self, path):
+      def _delete_non_directory(self, path):
 		with fileManager.session_scope() as session:
 			deleted_count = self.fm.delete_file(path,session)
 			if not deleted_count:
 				print "Problem with deleting"
 
-	def _delete_directory(self, path):
+      def _delete_directory(self, path):
 		with fileManager.session_scope() as session:
 			try:
 				deleted_count = self.fm.delete_directory( path,session)
@@ -433,7 +438,7 @@ class SharedContentsManager(ContentsManager):
 			if not deleted_count:
 				self.no_such_entity(path)
 
-	def delete_file(self, path):
+      def delete_file(self, path):
 		"""
 		Delete object corresponding to path.
 		"""

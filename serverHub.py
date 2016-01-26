@@ -22,11 +22,15 @@ import signal
 from tornado import gen, web
 import time
 from traitlets.config import Application
+import pickle
+import testUser
+from sqlalchemy.engine.base import Engine
+from sqlalchemy import create_engine
 
 here = os.path.dirname(__file__) # TODO: files are all gathered together. Clean the file structure
 
 
-import fileManager
+#import fileManager
 #import singleuser
 #import SharedContentsManager
 
@@ -43,9 +47,10 @@ class LoginHandler(BaseHandler):
 # Check if the user exist + general password
 # if yes, create a secure cookie to identify the user locally
     def post(self):
-      with fileManager.session_scope() as session:
+
+        with create_engine('postgresql://postgres:ishtar@localhost/ishtar') as db:
           passwd=self.get_argument("password")
-          if fileManager.um.existUser(self.get_argument("name"),session) and passwd=='ishtar':
+          if testUser.usr_exists(db,self.get_argument("name")) and passwd=='ishtar':
 			self.set_secure_cookie("user", self.get_argument("name"))
           self.redirect("/")
 
@@ -56,6 +61,10 @@ class LogoutHandler(BaseHandler):
         name = tornado.escape.xhtml_escape(self.current_user)
         self.write("Goodbye, " + name)
         self.clear_cookie("user")
+        self.application.srvTable[name]=0
+        table=self.application.srvTable
+        with open(config.gilgapath+os.sep+'srvTable.pickle', 'wb') as handle:
+                pickle.dump(table, handle)
 
 # called only by the admin rdi: kill process: node.js
 class DisconnectHandler(BaseHandler):
@@ -82,17 +91,42 @@ class ShutHandler(BaseHandler):
         )
         client.fetch(req)
         self.application.srvTable[name]=0
+        table=self.application.srvTable
+        with open(config.gilgapath+os.sep+'srvTable.pickle', 'wb') as handle:
+                pickle.dump(table, handle)
         self.redirect('/logout')
  
 # List users in activity
 class ListHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self):
+        kwargs = {'table': self.application.srvTable}
         name = tornado.escape.xhtml_escape(self.current_user)
         if name=='rdi':
-           for name, value in self.application.srvTable:
-               if value>0:
-                   self.write('Name : '+name)
+            self.render('listUsers.html',**kwargs)
+            
+    @tornado.web.authenticated   
+    def post(self):
+          name=self.get_argument("value")
+          nameusr = tornado.escape.xhtml_escape(self.current_user)
+          if nameusr=='rdi':
+              try:
+                  pid=self.application.srvTable[name]
+                  os.kill(pid, signal.SIGINT)   
+                  client=AsyncHTTPClient()
+                  req = HTTPRequest(config.httpaddress+':'+str(config.reqport)+'/api/routes/'+name,
+                                    method='DELETE',
+                                    headers={'Authorization': 'token '+format(self.application.auth_token)}, #.format(self.application.auth_token)
+                                    )
+                  client.fetch(req)
+                  self.application.srvTable[name]=0
+              except:
+                  self.write("Error killing user "+name)
+                  self.application.srvTable[name]=0
+              table=self.application.srvTable
+              with open(config.gilgapath+os.sep+'srvTable.pickle', 'wb') as handle:
+                pickle.dump(table, handle)
+              self.redirect('/listUsers')
 
 # if user identified with cookie, it asks the proxy to redirect the calls on 8000 to the Jupyter server identified with a port number   
  # then it starts the Jupyter server
@@ -129,6 +163,9 @@ class MainHandler(BaseHandler):
             self.application.srvTable[name]=res.pid
             #out, err = res.communicate()
             time.sleep(6) #TODO: not very efficient: we wait 6 seconds, for the Jupyter notebook to start.
+            table=self.application.srvTable
+            with open(config.gilgapath+os.sep+'srvTable.pickle', 'wb') as handle:
+                pickle.dump(table, handle)
         self.redirect("/"+name)        
         
         #self.write("Hello, " + name)
@@ -163,12 +200,19 @@ class serverHub(Application):
         print '++++++>'+str(nlength)
         listePorts=range(8100,8100+nlength)
         self.usrTable=dict(zip(listUsr,listePorts))
-        self.srvTable=dict(zip(listUsr,[0]*len(listUsr)))
+        try:
+            with open(config.gilgapath+os.sep+'srvTable.pickle', 'rb') as handle:
+                table = pickle.load(handle)
+                self.srvTable=table
+                print table
+        except:
+            self.srvTable=dict(zip(listUsr,[0]*len(listUsr)))
 
 # we initialize the userManager
     @gen.coroutine
     def init_users(self):
-        self.um=fileManager.userManager()
+        #self.um=fileManager.userManager()
+        pass
 
 # we configure the parameters of the nodes.js proxy server
     def init_proxy(self):

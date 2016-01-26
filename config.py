@@ -22,4 +22,4 @@ proxycmd='node C:\ISHTAR\gilgameshServer\configurable-http-proxy-master\\bin\con
 #proxycmd='nodejs /home/rdi/gilgameshServer/configurable-http-proxy-master/bin/configurable-http-proxy '
 filerepos='C:'+os.sep+'ISHTAR'+os.sep+'tmp'+os.sep
 #filerepos='/home/rdi/repos/'
-dburl=u'mysql+pymysql://ishtar:ishtar@localhost/ishtar'
+dburl=u'mysql+pymysql://ishtar:postgres:ishtar@localhost/ishtar'

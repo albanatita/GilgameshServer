@@ -11,13 +11,13 @@ except ImportError:
     # PY2 Compat
     from urllib import quote
 
-import requests
+
 import config
 from jinja2 import ChoiceLoader, FunctionLoader
 
 from tornado import ioloop
-from tornado.web import HTTPError
-import fileManager
+#import fileManager
+#import checkpoints
 
 from IPython.utils.traitlets import (
     Integer,
@@ -26,16 +26,14 @@ from IPython.utils.traitlets import (
 )
 
 from IPython.html.notebookapp import NotebookApp, aliases as notebook_aliases
-from IPython.html.auth.login import LoginHandler
-from IPython.html.auth.logout import LogoutHandler
-
-from IPython.html.utils import url_path_join
 
 
 from distutils.version import LooseVersion as V
 
-import fileManager as fm
-import SharedContentsManager
+from pgcontents import PostgresContentsManager
+from pgcontents import PostgresCheckpoints
+#import fileManager as fm
+#import SharedContentsManager
 
 import IPython
 if V(IPython.__version__) < V('3.0'):
@@ -75,13 +73,15 @@ class SingleUserNotebookApp(NotebookApp):
     #fman=fm.fileManager(usr,session) 
 
     aliases=aliases
-    notebook_dir='/'
+    notebook_dir='//'
     open_browser = False
     trust_xheaders = True
-    contents_manager_class=SharedContentsManager.SharedContentsManager  
+    #contents_manager_class=SharedContentsManager.SharedContentsManager  
+
+    #checkpoints_class=checkpoints.NoCheckpoints
     user=CUnicode('rdi',config=True)
-
-
+    contents_manager_class=PostgresContentsManager
+    PostgresContentsManager.db_url = 'postgresql://postgres:ishtar@localhost/ishtar'
     #login_handler_class = JupyterHubLoginHandler
     #logout_handler_class = JupyterHubLogoutHandler
 
@@ -102,16 +102,27 @@ class SingleUserNotebookApp(NotebookApp):
         # load the hub related settings into the tornado settings dict
         
         #self.log.info('toto '+str(self.user))        
-        um=fileManager.userManager()  
-        with fileManager.session_scope() as session:
-        	usr=um.getUser(str(self.user),session)
-        	session.expunge(usr)
-        self.log.info('=====> '+str(usr))
+        #um=fileManager.userManager()  
+        #with fileManager.session_scope() as session:
+        #	usr=um.getUser(str(self.user),session)
+        #	session.expunge(usr)
+        #self.log.info('=====> '+str(usr))
+        self.checkpoints_class = PostgresCheckpoints
 
-        SharedContentsManager.SharedContentsManager.usr=usr
-        SharedContentsManager.SharedContentsManager.checkpoints=None
+        PostgresContentsManager.user_id = str(self.user)        
+
+
+        self.log.info('=====> '+str(self.user))
+        
+
+#        SharedContentsManager.SharedContentsManager.checkpoints=checkpoints.NoCheckpoints()
+#        with fileManager.session_scope() as session:
+#            idd=um.getUserID(str(self.user),session)
+#            SharedContentsManager.SharedContentsManager.checkpoints.user_id=idd
+#            self.log.info('userd id===================>'+str(idd))
         #SharedContentsManager.SharedContentsManager.Session=fileManager.Session
-        SharedContentsManager.SharedContentsManager.fm=fileManager.fileManager(usr)  
+#        SharedContentsManager.SharedContentsManager.fm=fileManager.fileManager(usr)
+#        SharedContentsManager.SharedContentsManager.checkpoints.engine=fileManager.engine
         super(SingleUserNotebookApp, self).init_webapp()
         self.patch_templates()
     
