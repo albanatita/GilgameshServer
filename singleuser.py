@@ -62,7 +62,7 @@ page_template = """
 QUIT SESSION</a>
 {% endblock %}
 {% block logo %}
-<img src="title.png"  alt='Gilgamesh'/>
+<img src="/static/title.png"  alt='Gilgamesh'/> <i>powered by</i>
 {{super()}}
 {% endblock %}
 """

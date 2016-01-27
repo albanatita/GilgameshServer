@@ -24,8 +24,9 @@ import time
 from traitlets.config import Application
 import pickle
 import testUser
-from sqlalchemy.engine.base import Engine
+#from sqlalchemy.engine.base import Engine
 from sqlalchemy import create_engine
+
 
 here = os.path.dirname(__file__) # TODO: files are all gathered together. Clean the file structure
 
@@ -48,11 +49,12 @@ class LoginHandler(BaseHandler):
 # if yes, create a secure cookie to identify the user locally
     def post(self):
 
-        with create_engine('postgresql://postgres:ishtar@localhost/ishtar') as db:
-          passwd=self.get_argument("password")
-          if testUser.usr_exists(db,self.get_argument("name")) and passwd=='ishtar':
+        db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+        passwd=self.get_argument("password")
+        if testUser.usr_exists(db,self.get_argument("name")) and passwd=='ishtar':
 			self.set_secure_cookie("user", self.get_argument("name"))
-          self.redirect("/")
+        #b.dispose()
+        self.redirect("/")
 
 # Logout handler       
 class LogoutHandler(BaseHandler):
@@ -190,12 +192,14 @@ class serverHub(Application):
     (r"/disconnect",DisconnectHandler),
     (r"/shutdown",ShutHandler),
     (r"/listUsers",ListHandler),
+    (r"/static/(.*)",tornado.web.StaticFileHandler, {"path": here},)
 ]
 
 # we initialize here the list of active users and the associated list of ports
     def init_hub(self):
-    	with fileManager.session_scope() as session:
-    		listUsr=self.um.userList(session)
+        db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+        listUsr=testUser.usr_list(db)
+        db.dispose()
         nlength=len(listUsr)
         print '++++++>'+str(nlength)
         listePorts=range(8100,8100+nlength)
