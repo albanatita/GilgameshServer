@@ -13,7 +13,8 @@ import os
 import json
 from tornado.httpclient import HTTPRequest, AsyncHTTPClient
 import config
-
+import pgcontents.query as pgquery
+from pgcontents.api_utils import to_api_path,split_api_filepath
 from subprocess import Popen
 import tornado.httpserver
 import tornado.options
@@ -26,6 +27,8 @@ import pickle
 import testUser
 #from sqlalchemy.engine.base import Engine
 from sqlalchemy import create_engine
+
+import HTMLParser
 
 
 here = os.path.dirname(__file__) # TODO: files are all gathered together. Clean the file structure
@@ -130,6 +133,33 @@ class ListHandler(BaseHandler):
                 pickle.dump(table, handle)
               self.redirect('/listUsers')
 
+def TreeFile(db,path):
+    liste=pgquery.directories_in_directory(db, 'share', path)
+    text='<ul>\n'
+    for n in liste:
+        text=text+'<li id='+n['name']+'>'+split_api_filepath(to_api_path(n['name']))[1]+'\n'
+        text2=TreeFile(db,n['name'])
+        text=text+text2
+    liste=pgquery.files_in_directory(db, 'share', path)
+    for n in liste:
+        text=text+'<li id='+n['name']+'data-jstree=''{"icon":"//jstree.com/tree.png"}''>'+split_api_filepath(to_api_path(n['name']))[1]+'</li>\n'
+    text=text+'</ul>\n'
+    text=text+'</li>\n'
+    return text 
+
+class SharedHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self): 
+        db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+        tree=TreeFile(db,'/')
+        h= HTMLParser.HTMLParser()
+        tree=h.unescape(tree)
+        db.dispose()
+        #self.render('shared.html')
+        kwargs={'tree':tree}
+        self.render('shared.html',autoescape=None,**kwargs)
+        
+        
 # if user identified with cookie, it asks the proxy to redirect the calls on 8000 to the Jupyter server identified with a port number   
  # then it starts the Jupyter server
 class MainHandler(BaseHandler):
@@ -192,6 +222,7 @@ class serverHub(Application):
     (r"/disconnect",DisconnectHandler),
     (r"/shutdown",ShutHandler),
     (r"/listUsers",ListHandler),
+    (r"/shared",SharedHandler),
     (r"/static/(.*)",tornado.web.StaticFileHandler, {"path": here},)
 ]
 
