@@ -27,9 +27,9 @@ import pickle
 import testUser
 #from sqlalchemy.engine.base import Engine
 from sqlalchemy import create_engine
-
+from nbconvert import HTMLExporter
 import HTMLParser
-
+from pgcontents.api_utils import reads_base64
 
 here = os.path.dirname(__file__) # TODO: files are all gathered together. Clean the file structure
 
@@ -37,6 +37,8 @@ here = os.path.dirname(__file__) # TODO: files are all gathered together. Clean 
 #import fileManager
 #import singleuser
 #import SharedContentsManager
+
+
 
 # 
 class BaseHandler(tornado.web.RequestHandler):
@@ -56,7 +58,7 @@ class LoginHandler(BaseHandler):
         passwd=self.get_argument("password")
         if testUser.usr_exists(db,self.get_argument("name")) and passwd=='ishtar':
 			self.set_secure_cookie("user", self.get_argument("name"))
-        #b.dispose()
+        db.dispose()
         self.redirect("/")
 
 # Logout handler       
@@ -142,10 +144,40 @@ def TreeFile(db,path):
         text=text+text2
     liste=pgquery.files_in_directory(db, 'share', path)
     for n in liste:
-        text=text+'<li id='+n['name']+'data-jstree=''{"icon":"//jstree.com/tree.png"}''>'+split_api_filepath(to_api_path(n['name']))[1]+'</li>\n'
+        text=text+'<li id='+path+n['name']+' data-jstree=''{"icon":"/static/file-icon.png"}''>'+split_api_filepath(to_api_path(n['name']))[1]+'</li>\n'
     text=text+'</ul>\n'
     text=text+'</li>\n'
     return text 
+
+class RenderHandler(BaseHandler):
+        @tornado.web.authenticated
+        def post(self): 
+          id=self.get_argument("path")
+          print id
+          db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+        
+          fileContent=reads_base64(pgquery.get_file(db, "share", id, include_content=True)['content'])
+          #notebook= nbformat.reads(fileContent, as_version=4)
+          notebook=fileContent
+          db.dispose()
+          html_exporter = HTMLExporter()
+          html_exporter.template_file = 'basic'
+
+          (body, resources) = html_exporter.from_notebook_node(notebook)
+          self.write(body)
+
+class PullHandler(BaseHandler):
+        @tornado.web.authenticated
+        def post(self): 
+            name = tornado.escape.xhtml_escape(self.current_user)
+            path=self.get_argument("path")
+            db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+            binarycontent=pgquery.get_file(db, "share", path, include_content=True)['content']   
+            db.dispose()
+            with create_engine('postgresql://postgres:ishtar@localhost/ishtar').begin() as db:
+                pgquery.save_file(db, name, '/export/'+split_api_filepath(path)[1], binarycontent, 0)
+            self.redirect('/shared')
+
 
 class SharedHandler(BaseHandler):
     @tornado.web.authenticated
@@ -158,6 +190,7 @@ class SharedHandler(BaseHandler):
         #self.render('shared.html')
         kwargs={'tree':tree}
         self.render('shared.html',autoescape=None,**kwargs)
+     
         
         
 # if user identified with cookie, it asks the proxy to redirect the calls on 8000 to the Jupyter server identified with a port number   
@@ -223,6 +256,8 @@ class serverHub(Application):
     (r"/shutdown",ShutHandler),
     (r"/listUsers",ListHandler),
     (r"/shared",SharedHandler),
+    (r"/render",RenderHandler),
+    (r"/pull",PullHandler),
     (r"/static/(.*)",tornado.web.StaticFileHandler, {"path": here},)
 ]
 

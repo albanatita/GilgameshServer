@@ -1,0 +1,94 @@
+<!doctype html>
+
+<html lang="en">
+<link rel="stylesheet" href="{{static_url('./dist/themes/default/style.min.css')}}" />
+ <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="{{static_url('./dist/libs/jquery.js')}}"></script>
+<script src="{{static_url('./dist/jstree.min.js')}}"></script>
+  <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+<head>
+  <meta charset="utf-8">
+
+  <title>Central Archive</title>
+  <meta name="description" content="The HTML5 Herald">
+  <meta name="author" content="SitePoint">
+
+ 
+
+
+</head>
+
+<body>
+
+
+<h1>Central Archive</h1>
+
+<form id="form" action="/render" method="post"></form>
+<form id="form2" action="/pull" method="post"></form>
+<button id="button1">Pull File</button>
+<button id="button2">Display File</button>
+<div id="jstree">
+{% raw tree %}
+</div>
+</body>
+
+
+
+<script>
+$('#jstree').jstree({
+    "checkbox" : {
+      "keep_selected_style" : false,
+    "cascade":false
+    },
+    "plugins" : [ "checkbox" ]
+  });
+
+$(function() {
+    $("#button1").button({
+        icons: {
+            primary: "ui-icon-closethick"
+        }
+    });
+}); 
+$(function() {
+    $("#button2").button({
+        icons: {
+            primary: "ui-icon-closethick"
+        }
+    });
+});
+$(document).ready(function() { 
+ $("#button2")
+        .button()
+        .click(function(){ 
+            var selected = $('#jstree').jstree("get_selected");
+            var path=selected[0];
+            
+            $('<input>').attr({
+                type: 'hidden',
+                name: 'path',
+                value: String(path)
+                }).appendTo('#form');
+                console.log(path);
+            $('#form').submit();
+        });
+});
+$(document).ready(function() { 
+ $("#button1")
+        .button()
+        .click(function(){ 
+            var selected = $('#jstree').jstree("get_selected");
+            var path=selected[0];
+            
+            $('<input>').attr({
+                type: 'hidden',
+                name: 'path',
+                value: String(path)
+                }).appendTo('#form2');
+
+            $('#form2').submit();
+            console.log(path);
+        });
+});
+</script>
+</html>

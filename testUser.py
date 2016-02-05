@@ -10,6 +10,10 @@ from pgcontents.query import create_directory
 import pgcontents.query as pgquery
 from pgcontents.api_utils import to_api_path,split_api_filepath
 from sqlalchemy import create_engine
+from nbconvert import HTMLExporter
+import nbformat
+import HTMLParser
+from pgcontents.api_utils import reads_base64
 
 def usr_list(db):
     rows=db.execute(select({users.c.id}))
@@ -54,3 +58,16 @@ def TreeFile(db,path):
 #print usr_list(db)
 #create_usr(db,'share')
 #print TreeFile(db,'/')
+#db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+#fileContent=pgquery.get_file(db, "share", '/test.ipynb', include_content=True)
+#db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+#
+#fileContent=reads_base64(pgquery.get_file(db, "share",'/test.ipynb', include_content=True)['content'])
+#print fileContent
+##notebook= nbformat.reads(fileContent, as_version=4)
+#notebook=fileContent
+#db.dispose()
+#html_exporter = HTMLExporter()
+#html_exporter.template_file = 'basic'
+#
+#(body, resources) = html_exporter.from_notebook_node(notebook)

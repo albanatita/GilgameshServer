@@ -73,7 +73,7 @@ class SingleUserNotebookApp(NotebookApp):
     #fman=fm.fileManager(usr,session) 
 
     aliases=aliases
-    notebook_dir='//'
+    notebook_dir='/'
     open_browser = False
     trust_xheaders = True
     #contents_manager_class=SharedContentsManager.SharedContentsManager  

@@ -8,5 +8,4 @@ Created on Mon Oct 19 11:28:42 2015
 #!/usr/bin/env python
 
 from singleuser import main
-print 'toto'
 main()
