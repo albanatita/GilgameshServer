@@ -178,6 +178,20 @@ class PullHandler(BaseHandler):
                 pgquery.save_file(db, name, '/export/'+split_api_filepath(path)[1], binarycontent, 0)
             self.redirect('/shared')
 
+class PushHandler(BaseHandler):
+        @tornado.web.authenticated
+        def post(self): 
+            usr= tornado.escape.xhtml_escape(self.current_user)
+            print "I got a request!"
+            print self.request.arguments
+            file='/'+self.get_argument("file")
+            name=split_api_filepath(file)[1]
+            db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+            binarycontent=pgquery.get_file(db, usr, file, include_content=True)['content'] 
+            db.dispose()
+            with create_engine('postgresql://postgres:ishtar@localhost/ishtar').begin() as db:
+                pgquery.save_file(db, 'share', '/export/'+name, binarycontent, 0)
+            #self.write('File shared')
 
 class SharedHandler(BaseHandler):
     @tornado.web.authenticated
@@ -258,6 +272,7 @@ class serverHub(Application):
     (r"/shared",SharedHandler),
     (r"/render",RenderHandler),
     (r"/pull",PullHandler),
+    (r"/push",PushHandler),
     (r"/static/(.*)",tornado.web.StaticFileHandler, {"path": here},)
 ]
 

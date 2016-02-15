@@ -55,6 +55,12 @@ page_template = """
 {% block header_buttons %}
 {{super()}}
 
+<a href='{{central_archive_url}}'
+ class='btn btn-default btn-sm navbar-btn pull-right'
+ style='margin-right: 4px; margin-left: 2px;'
+>
+Central archive</a>
+
 <a href='{{hub_control_panel_url}}'
  class='btn btn-default btn-sm navbar-btn pull-right'
  style='margin-right: 4px; margin-left: 2px;'
@@ -131,6 +137,7 @@ class SingleUserNotebookApp(NotebookApp):
         env = self.web_app.settings['jinja2_env']
         
         env.globals['hub_control_panel_url'] = config.httpaddress+':8000/shutdown'
+        env.globals['central_archive_url'] = config.httpaddress+':8000/shared'
         
         # patch jinja env loading to modify page template
         def get_page(name):
