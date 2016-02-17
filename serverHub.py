@@ -9,6 +9,7 @@ Tornado server to control the request on the principal address and port
 """
 
 
+from tornado.escape import json_decode
 import os
 import json
 from tornado.httpclient import HTTPRequest, AsyncHTTPClient
@@ -30,6 +31,7 @@ from sqlalchemy import create_engine
 from nbconvert import HTMLExporter
 import HTMLParser
 from pgcontents.api_utils import reads_base64
+import bibtexparser as bib
 
 here = os.path.dirname(__file__) # TODO: files are all gathered together. Clean the file structure
 
@@ -166,6 +168,7 @@ class RenderHandler(BaseHandler):
           (body, resources) = html_exporter.from_notebook_node(notebook)
           self.write(body)
 
+
 class PullHandler(BaseHandler):
         @tornado.web.authenticated
         def post(self): 
@@ -182,8 +185,8 @@ class PushHandler(BaseHandler):
         @tornado.web.authenticated
         def post(self): 
             usr= tornado.escape.xhtml_escape(self.current_user)
-            print "I got a request!"
-            print self.request.arguments
+            #print "I got a request!"
+            #print self.request.arguments
             file='/'+self.get_argument("file")
             name=split_api_filepath(file)[1]
             db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
@@ -204,9 +207,36 @@ class SharedHandler(BaseHandler):
         #self.render('shared.html')
         kwargs={'tree':tree}
         self.render('shared.html',autoescape=None,**kwargs)
-     
+
+class SendBiblioHandler(BaseHandler):
+        @tornado.web.authenticated
+        def post(self):     
+            print "I got a request!"          
+            liste=json_decode(self.get_argument("list"))
+            with open('listb.bib') as bibtex_file:
+                bibtex_str = bibtex_file.read()
         
+            database = bib.loads(bibtex_str).entries
+            output=[]
+            for entry in liste:             
+             output.append((item for item in database if item["ID"] == entry).next())
+            self.write(json.dumps(output))
+    
+class BiblioHandler(tornado.web.RequestHandler):
+     @tornado.web.authenticated
+     def post(self):    
+         with open('listb.bib') as bibtex_file:
+             bibtex_str = bibtex_file.read()
         
+         bib_database = bib.loads(bibtex_str)
+         kwargs = {'table': {(d['ID'],d['title'],d['author']) for d in bib_database.entries}}
+         self.render('listBiblio.html',**kwargs)
+
+class AddBiblioHandler(BaseHandler):
+     @tornado.web.authenticated
+     def post(self):     
+        pass
+    
 # if user identified with cookie, it asks the proxy to redirect the calls on 8000 to the Jupyter server identified with a port number   
  # then it starts the Jupyter server
 class MainHandler(BaseHandler):
@@ -273,6 +303,9 @@ class serverHub(Application):
     (r"/render",RenderHandler),
     (r"/pull",PullHandler),
     (r"/push",PushHandler),
+    (r"/listBiblio",BiblioHandler),
+    (r"/addBiblio",AddBiblioHandler),
+    (r"/sendBiblio",SendBiblioHandler),
     (r"/static/(.*)",tornado.web.StaticFileHandler, {"path": here},)
 ]
 

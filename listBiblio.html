@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>User Status</title>
+  <meta name="description" content="The HTML5 Herald">
+  <meta name="author" content="SitePoint">
+
+  <link rel="stylesheet" href="{{ static_url('listUser.css')}}">
+
+
+</head>
+
+<body>
+
+<h1>Bibliography</h1>
+
+<table class="beispiel" cellspacing="0" cellpadding="0">
+
+<caption>Available bibliography</caption>
+
+<tbody>
+{%for ID,title,author in table %}
+
+<tr>
+<td>{{ID}}</td>
+<td>{{title}}</td>
+<td>{{author}}</td>
+</tr>
+{%end%}
+</tbody>
+
+</table>
+</body>
+</html>
