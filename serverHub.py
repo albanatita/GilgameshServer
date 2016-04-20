@@ -236,6 +236,19 @@ class AddBiblioHandler(BaseHandler):
      @tornado.web.authenticated
      def post(self):     
         pass
+
+class reloadServerHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        name = tornado.escape.xhtml_escape(self.current_user)
+        if name=='rdi':        
+            try:
+                with open(config.gilgapath+os.sep+'srvTable.pickle', 'rb') as handle:
+                    table = pickle.load(handle)
+                    self.application.srvTable=table
+                    print table
+            except:
+                pass    
     
 # if user identified with cookie, it asks the proxy to redirect the calls on 8000 to the Jupyter server identified with a port number   
  # then it starts the Jupyter server
@@ -306,6 +319,7 @@ class serverHub(Application):
     (r"/listBiblio",BiblioHandler),
     (r"/addBiblio",AddBiblioHandler),
     (r"/sendBiblio",SendBiblioHandler),
+    (r"/reloadSrv",reloadServerHandler),
     (r"/static/(.*)",tornado.web.StaticFileHandler, {"path": here},)
 ]
 

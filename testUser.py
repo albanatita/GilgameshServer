@@ -14,6 +14,9 @@ from nbconvert import HTMLExporter
 import nbformat
 import HTMLParser
 from pgcontents.api_utils import reads_base64
+import os
+import config
+import pickle
 
 def usr_list(db):
     rows=db.execute(select({users.c.id}))
@@ -41,6 +44,7 @@ def create_usr(db,user_id):
     )
     create_directory(db,user_id,'//')
     create_directory(db,user_id,'//export')
+    updateServerTable(user_id)
     
 def TreeFile(db,path):
     liste=pgquery.directories_in_directory(db, 'share', path)
@@ -51,12 +55,22 @@ def TreeFile(db,path):
         text=text+text2
     text=text+'</ul>\n'
     return text
-    
-#db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
+
+def updateServerTable(name):
+    with open(config.gilgapath+os.sep+'srvTable.pickle', 'rb') as handle:
+        table = pickle.load(handle)
+        print table
+        table[name]=0
+        print table
+    with open(config.gilgapath+os.sep+'srvTable.pickle', 'wb') as handle:
+        pickle.dump(table,handle)
+
+#updateServerTable('anak')    
+db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
 ##print usr_exists(db,'rdi')
 ##create_directory(db,'rdi','')
 #print usr_list(db)
-#create_usr(db,'share')
+#create_usr(db,'jjacquot')
 #print TreeFile(db,'/')
 #db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
 #fileContent=pgquery.get_file(db, "share", '/test.ipynb', include_content=True)
@@ -66,7 +80,7 @@ def TreeFile(db,path):
 #print fileContent
 ##notebook= nbformat.reads(fileContent, as_version=4)
 #notebook=fileContent
-#db.dispose()
+db.dispose()
 #html_exporter = HTMLExporter()
 #html_exporter.template_file = 'basic'
 #
