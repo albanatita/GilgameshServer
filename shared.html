@@ -3,8 +3,10 @@
 <html lang="en">
 <link rel="stylesheet" href="{{static_url('./dist/themes/default/style.min.css')}}" />
  <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+  <link rel="stylesheet" href="{{static_url('shared.css')}}">
 <script src="{{static_url('./dist/libs/jquery.js')}}"></script>
 <script src="{{static_url('./dist/jstree.min.js')}}"></script>
+
   <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
 <head>
   <meta charset="utf-8">
@@ -13,15 +15,15 @@
   <meta name="description" content="The HTML5 Herald">
   <meta name="author" content="SitePoint">
 
- 
-
-
 </head>
 
 <body>
 
 
 <h1>Central Archive</h1>
+<hr>
+<p> This is the central repository of notebooks and data common to all users of Gilgamesh. Here you can view the notebooks or transfer ("pull")
+them to your own repository. Just select a file in the tree and click "pull". Then, select the directory where you want to save it (by default in "/").</p>
 
 <form id="form" action="/render" method="post"></form>
 <form id="form2" action="/pull" method="post"></form>
@@ -30,17 +32,35 @@
 <div id="jstree">
 {% raw tree %}
 </div>
+
+
+
+
+
+<div id="dialog-form" title="directory">
+   <form>
+    <fieldset>
+      <label for="name">Directory:</label>
+      <input type="text" name="directory" id="directory" value="/" class="text ui-widget-content ui-corner-all">
+
+      <!-- Allow form submission with keyboard without duplicating the dialog button -->
+      <input type="submit" tabindex="-1" style="position:absolute; top:-1000px">
+    </fieldset>
+  </form>
+</div>
 </body>
-
-
-
 <script>
 $('#jstree').jstree({
-    "checkbox" : {
-      "keep_selected_style" : false,
-    "cascade":false
-    },
-    "plugins" : [ "checkbox" ]
+ //   "checkbox" : {
+ //     "keep_selected_style" : false,
+ //   "cascade":false
+  //  },
+  //  "plugins" : [ "checkbox","conditionalselect" ],
+	  "core" : {
+    "multiple" : false,
+    "animation" : 0
+  }
+ //  conditionalselect : function (node) { return this.is_leaf(node); }
   });
 
 $(function() {
@@ -57,8 +77,53 @@ $(function() {
         }
     });
 });
-$(document).ready(function() { 
- $("#button2")
+
+//$(document).ready(function() { 
+$(function() {
+var dialog, form, path
+directory = $( "#directory" );
+//allFields = $( [] ).add( name );
+
+   function addFile() {
+
+	console.log(String(directory.val()))
+	  $('<input>').attr({
+	type: 'hidden',
+	name: 'path',
+	value: String(path)
+	}).appendTo('#form2');
+	$('<input>').attr({
+	type: 'hidden',
+	name: 'directory',
+	value: String(directory.val())
+	}).appendTo('#form2');
+	$('#form2').submit();
+     dialog.dialog( "close" );
+   }
+
+dialog = $( "#dialog-form" ).dialog({
+  autoOpen: false,
+  height: 300,
+  width: 350,
+  modal: true,
+  buttons: {
+	"Pull file": addFile,
+	Cancel: function() {
+	  dialog.dialog( "close" );
+	}
+  },
+  close: function() {
+	form[ 0 ].reset();
+	//allFields.removeClass( "ui-state-error" );
+  }
+});
+
+    form = dialog.find( "form" ).on( "submit", function( event ) {
+      event.preventDefault();
+      addFile();
+    });
+
+	 $("#button2")
         .button()
         .click(function(){ 
             var selected = $('#jstree').jstree("get_selected");
@@ -72,23 +137,19 @@ $(document).ready(function() {
                 console.log(path);
             $('#form').submit();
         });
-});
-$(document).ready(function() { 
+	
  $("#button1")
         .button()
         .click(function(){ 
             var selected = $('#jstree').jstree("get_selected");
-            var path=selected[0];
-            
-            $('<input>').attr({
-                type: 'hidden',
-                name: 'path',
-                value: String(path)
-                }).appendTo('#form2');
+            path=selected[0];
+			
 
-            $('#form2').submit();
-            console.log(path);
+				dialog.dialog( "open" );
+//          
+            //console.log(path);
         });
 });
 </script>
+
 </html>

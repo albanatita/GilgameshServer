@@ -4,11 +4,11 @@
 <head>
   <meta charset="utf-8">
 
-  <title>User Status</title>
+  <title>Bibliography</title>
   <meta name="description" content="The HTML5 Herald">
   <meta name="author" content="SitePoint">
 
-  <link rel="stylesheet" href="{{ static_url('listUser.css')}}">
+  <link rel="stylesheet" href="{{ static_url('listBib.css')}}">
 
 
 </head>
@@ -16,18 +16,23 @@
 <body>
 
 <h1>Bibliography</h1>
+<hr>
+<p> This is the list of available documents that you can reference in your notebooks. </p>
+<p><a href="{{static_url('listb.bib')}}">Import bib file</a></p>
+
 
 <table class="beispiel" cellspacing="0" cellpadding="0">
 
 <caption>Available bibliography</caption>
 
 <tbody>
-{%for ID,title,author in table %}
+{%for ID,title,author,howpublished in table %}
 
 <tr>
 <td>{{ID}}</td>
 <td>{{title}}</td>
 <td>{{author}}</td>
+<td><a href="{{howpublished}}" target="_blank">Read article</a></td>
 </tr>
 {%end%}
 </tbody>

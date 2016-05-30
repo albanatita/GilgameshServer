@@ -57,9 +57,17 @@ page_template = """
 
 <a href='{{central_archive_url}}'
  class='btn btn-default btn-sm navbar-btn pull-right'
- style='margin-right: 4px; margin-left: 2px;'
+ style='margin-right: 4px; margin-left: 2px;' 
+ target="_blank"
 >
 Central archive</a>
+
+<a href='{{bibliography_url}}'
+ class='btn btn-default btn-sm navbar-btn pull-right'
+ style='margin-right: 4px; margin-left: 2px;'
+ target="_blank"
+>
+Bibiography</a>
 
 <a href='{{hub_control_panel_url}}'
  class='btn btn-default btn-sm navbar-btn pull-right'
@@ -138,6 +146,7 @@ class SingleUserNotebookApp(NotebookApp):
         
         env.globals['hub_control_panel_url'] = config.httpaddress+':8000/shutdown'
         env.globals['central_archive_url'] = config.httpaddress+':8000/shared'
+        env.globals['bibliography_url'] = config.httpaddress+':8000/listBiblio'
         
         # patch jinja env loading to modify page template
         def get_page(name):

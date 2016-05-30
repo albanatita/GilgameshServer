@@ -47,7 +47,7 @@ define(['jquery', 'nbextensions/widgets/widgets/js/widget'], function($, widget)
 							that.el.setAttribute("style", "max-width:" + String(width) + "px;");
 							that.drawTable();
 						 */
-						 that.$el.append('<div id="myGrid" style="width:900px;height:500px;"></div>');
+						 that.$el.append('<div id="myGrid" style="max-width:700px;height:500px;"></div>');
 						 //that.model.on('msg:custom', that.handleMsg, that);
 						 that.drawTable();
 				});
@@ -64,6 +64,9 @@ define(['jquery', 'nbextensions/widgets/widgets/js/widget'], function($, widget)
 
 			var slickgrid=new Slick.Grid("#myGrid", df,columns);
 			slickgrid.setSelectionModel(new Slick.RowSelectionModel());
+			slickgrid.autosizeColumns();
+			slickgrid.render();
+			//slickgrid.resizeCanvas();
 			slickgrid.onSelectedRowsChanged.subscribe(function(e, args) {
                 var rows = args.rows;
 				

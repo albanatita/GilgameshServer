@@ -174,11 +174,15 @@ class PullHandler(BaseHandler):
         def post(self): 
             name = tornado.escape.xhtml_escape(self.current_user)
             path=self.get_argument("path")
+            directory=self.get_argument("directory")
+            if directory[-1] != '/':
+                directory=directory+'/'
+
             db=create_engine('postgresql://postgres:ishtar@localhost/ishtar')
             binarycontent=pgquery.get_file(db, "share", path, include_content=True)['content']   
             db.dispose()
             with create_engine('postgresql://postgres:ishtar@localhost/ishtar').begin() as db:
-                pgquery.save_file(db, name, '/export/'+split_api_filepath(path)[1], binarycontent, 0)
+                pgquery.save_file(db, name, directory+split_api_filepath(path)[1], binarycontent, 0)
             self.redirect('/shared')
 
 class PushHandler(BaseHandler):
@@ -222,14 +226,13 @@ class SendBiblioHandler(BaseHandler):
              output.append((item for item in database if item["ID"] == entry).next())
             self.write(json.dumps(output))
     
-class BiblioHandler(tornado.web.RequestHandler):
+class BiblioHandler(BaseHandler):
      @tornado.web.authenticated
-     def post(self):    
+     def get(self):    
          with open('listb.bib') as bibtex_file:
              bibtex_str = bibtex_file.read()
-        
          bib_database = bib.loads(bibtex_str)
-         kwargs = {'table': {(d['ID'],d['title'],d['author']) for d in bib_database.entries}}
+         kwargs = {'table': {(d['ID'],d['title'],d['author'],d['howpublished']) for d in bib_database.entries}}
          self.render('listBiblio.html',**kwargs)
 
 class AddBiblioHandler(BaseHandler):
@@ -292,6 +295,11 @@ class MainHandler(BaseHandler):
         
         #self.write("Hello, " + name)
 
+class MyStaticFileHandler(tornado.web.StaticFileHandler):
+    def set_extra_headers(self, path):
+        # Disable cache
+        self.set_header("Cache-control", "no-cache")
+
 # The main class to start the central server
 class serverHub(Application):
 #TODO: clean all thee parameters
@@ -320,7 +328,7 @@ class serverHub(Application):
     (r"/addBiblio",AddBiblioHandler),
     (r"/sendBiblio",SendBiblioHandler),
     (r"/reloadSrv",reloadServerHandler),
-    (r"/static/(.*)",tornado.web.StaticFileHandler, {"path": here},)
+    (r"/static/(.*)",MyStaticFileHandler, {"path": here},)
 ]
 
 # we initialize here the list of active users and the associated list of ports
