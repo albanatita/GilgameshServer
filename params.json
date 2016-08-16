@@ -1,0 +1,6 @@
+{
+  "name": "Gilgamesh Server",
+  "tagline": "A personalized version of JupyterHub to provide access to Jupyter notebooks to several users from a PC and to manage a shared bibliography.",
+  "body": "### Welcome to the Gilgamesh Server page\r\n\r\nThis project is part of the Gilgamesh data processing framework. The server, based on the JupyterHub architecture, offers the access to Jupyter notebooks for a small team. The notebooks can be shared and a central bibliography gives simple access to latex-like citations in each notebook.\r\n\r\nThis is a pre-pre-alpha version oriented, for the moment, for internal use and for understanding the operation of JupyterHub.  It is working on Windows and can support a team of 6-7 users.\r\n",
+  "note": "Don't delete this file! It's used internally to help with page regeneration."
+}
